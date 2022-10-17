@@ -9,7 +9,7 @@ import pygame.mixer
 
 pygame.init()
 
-current_time = datetime.now()
+current_time = datetime.now().strftime('%Y-%m-%d')
 
 def add_digit(digit):
     value = mleco.get() + str(digit)
@@ -75,16 +75,16 @@ token = "токен"
 bot = telebot.TeleBot(token=token)
 
 
-@bot.message_handler(content_types=['text'])
+@bot.message_handler()
 def send(message):
     try:
         with open("data_list.txt","rb") as file:
             f = file.read()
-
-        bot.send_document(message.chat.id, f, "data_list.txt")
+            print(f)
+        bot.send_document(message.chat.id, open("data_list.txt", "rb"))
 
     except:
-        bot.send_message(message.chat.id, "файл не найден")
+        bot.send_message(message.chat.id, "не найдено")
         print("not found")
 bot.polling()
 
