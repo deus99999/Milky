@@ -18,9 +18,9 @@ def add_digit(digit):
     pygame.mixer.music.play()
     
 def save():
-    text = "\n"  + " " + mleco.get() + " " + "л" + " " + str(current_time) 
+    text = "\n"  + " " + mleco.get() + " " + "liters" + " " + str(current_time) 
     filename = "data_list.txt"
-    with open(filename, 'a') as f:
+    with open(filename, 'a', encoding='utf-8') as f:
         f.write(text)
     mleco.delete(0, END)
     mleco.insert(0, "Сохранено")
