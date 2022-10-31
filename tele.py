@@ -1,6 +1,6 @@
 import telebot
 from telebot import types # для указание типов
-import config
+from telebot.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 from datetime import date
 from datetime import datetime
@@ -10,7 +10,7 @@ import time
 import pygame.mixer
 import sqlite3
 
-
+from config import token
 
 pygame.init()
 
@@ -35,10 +35,12 @@ def add_digit(digit):
 def create_db():
     db = sqlite3.connect("milky_data_base.db")
     c = db.cursor()
-    c.execute("CREATE TABLE milk (litr text, date text, time time)")
+    c.execute("CREATE TABLE milk (litr text, date text, time time, price text)")
     db.commit()
     db.close()
 
+def get_price(price=20):
+    return price
 
 def save():   
     try:
@@ -49,8 +51,8 @@ def save():
         if liters[:9] == "Сохранено":
             liters = liters.replace(liters[:9], "")
         
-        c.execute(f"INSERT INTO milk VALUES ('{liters}', '{str(date)}', '{str(time)}')")
-        print(f"Данные записаны:\n{liters} л.\n{str(date)}\n{str(time)}")
+        c.execute(f"INSERT INTO milk VALUES ('{liters}', '{str(date)}', '{str(time)}', '{str(get_price())}')")
+        print(f"Данные записаны:\n{liters} л.\n{str(date)}\n{str(time)}\n{str(get_price())}")
 
         db.commit()
         
@@ -68,8 +70,8 @@ def save():
         db = sqlite3.connect("milky_data_base.db")
         print("База данных подключена")
         c = db.cursor()
-        c.execute(f"INSERT INTO milk VALUES ('{liters}', '{str(date)}', '{str(time)}')")
-        print(f"Данные записаны:\n{liters} л.\n{str(date)}\n{str(time)}")
+        c.execute(f"INSERT INTO milk VALUES ('{liters}', '{str(date)}', '{str(time)}', '{get_price()}')")
+        print(f"Данные записаны:\n{liters} л.\n{str(date)}\n{str(time)}\n{get_price()}")
 
         db.commit()
 
@@ -113,18 +115,44 @@ win.grid_rowconfigure(4, minsize=60)
 win.mainloop()
 
 
-token = ""   
 bot = telebot.TeleBot(token=token)
 
 
-markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+markup = ReplyKeyboardMarkup(resize_keyboard=True)
 btn1 = types.KeyboardButton("Показать")
 btn2 = types.KeyboardButton("Посчитать")
-markup.add(btn1, btn2)  
+btn3 = types.KeyboardButton("Ввести стоимость за литр")
+
+markup.add(btn1, btn2)
+markup.add(btn3)
+
+
+keyboard = InlineKeyboardMarkup()
+keyboard.add(InlineKeyboardButton(text=f"Умножить на {get_price()} грн", callback_data="value"))
 
 
 @bot.message_handler(content_types=['text'])
-def send_counted_milk(message):
+def buttons_menu(message):
+    if message.text == 'Показать':
+        try:
+            db = sqlite3.connect("milky_data_base.db")
+            c = db.cursor()
+            c.execute(f"SELECT * FROM milk")
+            items = c.fetchall()
+
+            information = ""
+
+            for item in items:
+                item = "  | ".join(item)
+                information = information + item + "грн" + "\n"                  
+            bot.send_message(message.chat.id, information, reply_markup=markup)
+
+        except:
+            bot.send_message(message.chat.id, "Не удалось вывести базу данных")        
+
+        finally:
+            db.close()
+            
     if message.text == 'Посчитать':
         try:
             db = sqlite3.connect("milky_data_base.db")
@@ -134,37 +162,32 @@ def send_counted_milk(message):
             resault = 0
             for litr in all_liters:
                 for num in litr:
-                    print(num)
                     resault += float(num)
-            bot.send_message(message.chat.id, f"Всего {resault} литров", reply_markup=markup)
+            bot.send_message(message.chat.id, f"Всего {resault} литров", reply_markup=keyboard)
+            
+            @bot.callback_query_handler(func=lambda c: c.data == 'value') 
 
+            def process_callback_button1(callback_query: types.CallbackQuery):
+                try:
+                    milk_value = resault * get_price()
+                    bot.answer_callback_query(callback_query.id)                           
+                    bot.send_message(callback_query.from_user.id, f"{resault} л x {get_price()} грн = {milk_value} грн")
+                except:
+                    bot.send_message(callback_query.from_user.id, "Не удалось высчитать стоимость.")
         except:
             bot.send_message(message.chat.id, "Не удалось посчитать")        
 
         finally:
             db.close()
 
-    
-@bot.message_handler()
-def send(message):
+    if message.text == "Ввести стоимость за литр":
+        bot.send_message(message.chat.id, "Введите новую цену за один литр молока:")
         
-    try:       
-        db = sqlite3.connect("milky_data_base.db")
-        c = db.cursor()
-        c.execute(f"SELECT * FROM milk")
-        items = c.fetchall()
-        information = ""
-        for item in items:
-            item = "  ".join(item)
-            information = information + item + "\n"  
-        bot.send_message(message.chat.id, information, reply_markup=markup)
 
-    except:
-        bot.send_message(message.chat.id, "не найдено")
-        print("not found")
 
-    finally:
-        db.close()
+
+
+    
       
 bot.polling()
 
